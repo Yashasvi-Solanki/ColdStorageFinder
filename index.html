@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cold Storage Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8 font-sans">
+
+    <div class="max-w-5xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">Cold Storage Finder</h1>
+        
+        <div class="flex gap-4 mb-8">
+            <button onclick="fetchStorages()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow">
+                Show Cold Storages
+            </button>
+            
+            <select id="sort-select" onchange="fetchStorages()" class="border border-gray-300 rounded px-4 py-2 bg-white text-gray-700">
+                <option value="">Default Sorting</option>
+                <option value="price">Sort by Price (Lowest to Highest)</option>
+                <option value="slots">Sort by Available Slots (Highest to Lowest)</option>
+            </select>
+        </div>
+
+        <div id="results-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            </div>
+    </div>
+
+    <script>
+        // The bridge function that talks to your Python API
+        async function fetchStorages() {
+            const container = document.getElementById('results-container');
+            const sortValue = document.getElementById('sort-select').value;
+            
+            container.innerHTML = "<p class='text-gray-500'>Loading live data...</p>"; 
+
+            try {
+                // 1. Build the correct URL depending on the dropdown
+                let url = 'http://localhost:8000/storages';
+                if (sortValue !== "") {
+                    url += `?sort_by=${sortValue}`;
+                }
+
+                // 2. Fetch the data from Python
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                // 3. Clear the loading text
+                container.innerHTML = "";
+
+                // Helper function to prevent XSS
+                const escapeHTML = (str) => {
+                    return String(str).replace(/[&<>'"]/g, 
+                        tag => ({
+                            '&': '&amp;',
+                            '<': '&lt;',
+                            '>': '&gt;',
+                            "'": '&#39;',
+                            '"': '&quot;'
+                        }[tag] || tag)
+                    );
+                };
+
+                // 4. Create a visual card for every row in the database
+                data.storages.forEach(storage => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-lg shadow p-6 border border-gray-200';
+                    card.innerHTML = `
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">${escapeHTML(storage.name)}</h3>
+                        <p class="text-gray-600 mb-1"><strong>Location:</strong> ${escapeHTML(storage.location)}</p>
+                        <p class="text-gray-600 mb-1"><strong>Available Slots:</strong> <span class="text-green-600 font-bold">${escapeHTML(storage.available_slots)}</span></p>
+                        <p class="text-gray-900 font-bold mt-4 text-lg">₹${escapeHTML(storage.price_per_slot)} / slot</p>
+                    `;
+                    container.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error(error);
+                container.innerHTML = "<p class='text-red-600 font-bold'>Error: Could not connect to the database. Is Uvicorn running?</p>";
+            }
+        }
+    </script>
+</body>
+</html>
